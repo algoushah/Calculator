@@ -1,0 +1,794 @@
+<!DOCTYPE html>
+<html lang="ar" dir="rtl">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>AYOUB.PW — آلة حاسبة</title>
+<link href="https://fonts.googleapis.com/css2?family=Orbitron:wght@400;700;900&family=Cairo:wght@300;400;600;700&display=swap" rel="stylesheet">
+<style>
+  :root {
+    --bg: #050812;
+    --surface: #0a1628;
+    --surface2: #0f1e3a;
+    --accent: #00d4ff;
+    --accent2: #7b2fff;
+    --accent3: #ff2d78;
+    --gold: #ffd700;
+    --text: #e8f4fd;
+    --text-dim: #5a7a9a;
+    --glow: 0 0 20px rgba(0,212,255,0.4);
+    --glow2: 0 0 30px rgba(123,47,255,0.5);
+  }
+
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+
+  body {
+    background: var(--bg);
+    color: var(--text);
+    font-family: 'Cairo', sans-serif;
+    min-height: 100vh;
+    overflow-x: hidden;
+    cursor: none;
+  }
+
+  /* Custom cursor */
+  .cursor {
+    position: fixed;
+    width: 12px; height: 12px;
+    background: var(--accent);
+    border-radius: 50%;
+    pointer-events: none;
+    z-index: 10000;
+    transform: translate(-50%, -50%);
+    transition: transform 0.05s;
+    box-shadow: 0 0 15px var(--accent), 0 0 30px var(--accent);
+    mix-blend-mode: screen;
+  }
+
+  .cursor-ring {
+    position: fixed;
+    width: 35px; height: 35px;
+    border: 1.5px solid rgba(0,212,255,0.5);
+    border-radius: 50%;
+    pointer-events: none;
+    z-index: 9999;
+    transform: translate(-50%, -50%);
+    transition: all 0.12s ease;
+  }
+
+  /* Canvas for particles */
+  #particleCanvas {
+    position: fixed;
+    top: 0; left: 0;
+    width: 100%; height: 100%;
+    pointer-events: none;
+    z-index: 1;
+  }
+
+  /* Grid background */
+  .grid-bg {
+    position: fixed;
+    top: 0; left: 0; right: 0; bottom: 0;
+    background-image:
+      linear-gradient(rgba(0,212,255,0.03) 1px, transparent 1px),
+      linear-gradient(90deg, rgba(0,212,255,0.03) 1px, transparent 1px);
+    background-size: 50px 50px;
+    z-index: 0;
+  }
+
+  /* Orbs */
+  .orb {
+    position: fixed;
+    border-radius: 50%;
+    filter: blur(80px);
+    opacity: 0.15;
+    animation: orbFloat 8s ease-in-out infinite;
+    z-index: 0;
+  }
+  .orb1 { width: 500px; height: 500px; background: var(--accent2); top: -100px; left: -100px; }
+  .orb2 { width: 400px; height: 400px; background: var(--accent); bottom: -100px; right: -100px; animation-delay: -4s; }
+  .orb3 { width: 300px; height: 300px; background: var(--accent3); top: 50%; left: 50%; transform: translate(-50%,-50%); animation-delay: -2s; }
+
+  @keyframes orbFloat {
+    0%, 100% { transform: translate(0,0) scale(1); }
+    33% { transform: translate(30px,-20px) scale(1.05); }
+    66% { transform: translate(-20px,30px) scale(0.95); }
+  }
+
+  /* Main layout */
+  .container {
+    position: relative;
+    z-index: 2;
+    min-height: 100vh;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    padding: 20px;
+    gap: 30px;
+  }
+
+  /* Header / Logo */
+  .header {
+    text-align: center;
+    animation: fadeDown 0.8s ease forwards;
+  }
+
+  .logo-img {
+    height: 55px;
+    filter: drop-shadow(0 0 15px rgba(0,212,255,0.6)) drop-shadow(0 0 30px rgba(123,47,255,0.4));
+    animation: logoPulse 3s ease-in-out infinite;
+  }
+
+  @keyframes logoPulse {
+    0%, 100% { filter: drop-shadow(0 0 15px rgba(0,212,255,0.6)) drop-shadow(0 0 30px rgba(123,47,255,0.4)); }
+    50% { filter: drop-shadow(0 0 25px rgba(0,212,255,0.9)) drop-shadow(0 0 50px rgba(123,47,255,0.7)); }
+  }
+
+  .tagline {
+    font-family: 'Orbitron', monospace;
+    font-size: 10px;
+    letter-spacing: 5px;
+    color: var(--accent);
+    text-transform: uppercase;
+    margin-top: 8px;
+    opacity: 0.7;
+  }
+
+  /* Calculator wrapper */
+  .calc-wrapper {
+    animation: fadeUp 0.8s ease 0.2s forwards;
+    opacity: 0;
+  }
+
+  .calc {
+    background: linear-gradient(145deg, rgba(15,30,58,0.95), rgba(10,22,40,0.98));
+    border: 1px solid rgba(0,212,255,0.15);
+    border-radius: 24px;
+    padding: 24px;
+    width: 360px;
+    box-shadow:
+      0 0 0 1px rgba(0,212,255,0.05),
+      0 20px 60px rgba(0,0,0,0.6),
+      inset 0 1px 0 rgba(255,255,255,0.05),
+      0 0 80px rgba(0,212,255,0.05);
+    position: relative;
+    overflow: hidden;
+  }
+
+  .calc::before {
+    content: '';
+    position: absolute;
+    top: 0; left: 0; right: 0;
+    height: 1px;
+    background: linear-gradient(90deg, transparent, var(--accent), var(--accent2), transparent);
+    opacity: 0.5;
+  }
+
+  /* Display */
+  .display {
+    background: rgba(0,0,0,0.5);
+    border: 1px solid rgba(0,212,255,0.1);
+    border-radius: 16px;
+    padding: 20px 20px 14px;
+    margin-bottom: 20px;
+    min-height: 100px;
+    display: flex;
+    flex-direction: column;
+    justify-content: flex-end;
+    align-items: flex-end;
+    position: relative;
+    overflow: hidden;
+  }
+
+  .display::after {
+    content: '';
+    position: absolute;
+    top: 0; left: -100%;
+    width: 60%; height: 100%;
+    background: linear-gradient(90deg, transparent, rgba(0,212,255,0.03), transparent);
+    animation: scanline 3s linear infinite;
+  }
+
+  @keyframes scanline {
+    to { left: 150%; }
+  }
+
+  .expression {
+    font-family: 'Orbitron', monospace;
+    font-size: 13px;
+    color: var(--text-dim);
+    min-height: 20px;
+    word-break: break-all;
+    text-align: right;
+    letter-spacing: 1px;
+  }
+
+  .result {
+    font-family: 'Orbitron', monospace;
+    font-size: 38px;
+    font-weight: 700;
+    color: var(--text);
+    letter-spacing: 2px;
+    line-height: 1.1;
+    text-shadow: 0 0 20px rgba(0,212,255,0.3);
+    word-break: break-all;
+    transition: all 0.15s ease;
+  }
+
+  .result.flash {
+    color: var(--accent);
+    text-shadow: 0 0 30px var(--accent);
+  }
+
+  /* Button grid */
+  .buttons {
+    display: grid;
+    grid-template-columns: repeat(4, 1fr);
+    gap: 10px;
+  }
+
+  .btn {
+    border: none;
+    border-radius: 14px;
+    padding: 0;
+    height: 68px;
+    font-family: 'Orbitron', monospace;
+    font-size: 16px;
+    font-weight: 600;
+    cursor: none;
+    position: relative;
+    overflow: hidden;
+    transition: all 0.15s cubic-bezier(0.34, 1.56, 0.64, 1);
+    letter-spacing: 1px;
+  }
+
+  .btn::before {
+    content: '';
+    position: absolute;
+    top: 50%; left: 50%;
+    width: 0; height: 0;
+    background: rgba(255,255,255,0.15);
+    border-radius: 50%;
+    transform: translate(-50%, -50%);
+    transition: width 0.4s ease, height 0.4s ease, opacity 0.4s ease;
+    opacity: 0;
+  }
+
+  .btn:active::before {
+    width: 200px; height: 200px;
+    opacity: 0;
+  }
+
+  .btn:active {
+    transform: scale(0.93);
+  }
+
+  /* Number buttons */
+  .btn-num {
+    background: linear-gradient(145deg, #0f1e3a, #0a1525);
+    color: var(--text);
+    border: 1px solid rgba(0,212,255,0.1);
+    box-shadow: 0 4px 15px rgba(0,0,0,0.3), inset 0 1px 0 rgba(255,255,255,0.04);
+  }
+
+  .btn-num:hover {
+    background: linear-gradient(145deg, #152540, #0f1e35);
+    border-color: rgba(0,212,255,0.3);
+    color: var(--accent);
+    box-shadow: 0 0 20px rgba(0,212,255,0.15), 0 4px 15px rgba(0,0,0,0.3);
+    transform: translateY(-2px);
+  }
+
+  /* Operator buttons */
+  .btn-op {
+    background: linear-gradient(145deg, rgba(0,212,255,0.12), rgba(0,212,255,0.06));
+    color: var(--accent);
+    border: 1px solid rgba(0,212,255,0.25);
+    box-shadow: 0 4px 15px rgba(0,212,255,0.1), inset 0 1px 0 rgba(0,212,255,0.1);
+    text-shadow: 0 0 10px var(--accent);
+  }
+
+  .btn-op:hover {
+    background: linear-gradient(145deg, rgba(0,212,255,0.25), rgba(0,212,255,0.15));
+    border-color: var(--accent);
+    box-shadow: 0 0 25px rgba(0,212,255,0.35), 0 4px 15px rgba(0,212,255,0.2);
+    transform: translateY(-2px);
+  }
+
+  /* Equals button */
+  .btn-eq {
+    background: linear-gradient(145deg, #00c4ef, #006aff);
+    color: #fff;
+    border: 1px solid rgba(0,212,255,0.4);
+    box-shadow: 0 4px 20px rgba(0,150,255,0.4), inset 0 1px 0 rgba(255,255,255,0.2);
+    font-size: 22px;
+    text-shadow: none;
+  }
+
+  .btn-eq:hover {
+    background: linear-gradient(145deg, #00d8ff, #0080ff);
+    box-shadow: 0 0 30px rgba(0,180,255,0.6), 0 8px 25px rgba(0,100,255,0.4);
+    transform: translateY(-3px);
+  }
+
+  /* Clear button */
+  .btn-clear {
+    background: linear-gradient(145deg, rgba(255,45,120,0.15), rgba(255,45,120,0.08));
+    color: var(--accent3);
+    border: 1px solid rgba(255,45,120,0.25);
+    box-shadow: 0 4px 15px rgba(255,45,120,0.1), inset 0 1px 0 rgba(255,45,120,0.1);
+    font-size: 13px;
+    text-shadow: 0 0 10px var(--accent3);
+  }
+
+  .btn-clear:hover {
+    background: linear-gradient(145deg, rgba(255,45,120,0.3), rgba(255,45,120,0.2));
+    border-color: var(--accent3);
+    box-shadow: 0 0 25px rgba(255,45,120,0.35);
+    transform: translateY(-2px);
+  }
+
+  /* Special buttons */
+  .btn-special {
+    background: linear-gradient(145deg, rgba(123,47,255,0.15), rgba(123,47,255,0.08));
+    color: #b57fff;
+    border: 1px solid rgba(123,47,255,0.25);
+    box-shadow: 0 4px 15px rgba(123,47,255,0.1);
+    font-size: 14px;
+  }
+
+  .btn-special:hover {
+    background: linear-gradient(145deg, rgba(123,47,255,0.3), rgba(123,47,255,0.2));
+    border-color: #7b2fff;
+    box-shadow: 0 0 25px rgba(123,47,255,0.35);
+    transform: translateY(-2px);
+    color: #d0aaff;
+  }
+
+  .btn-zero { grid-column: span 2; }
+
+  /* Footer */
+  .footer {
+    font-size: 11px;
+    color: var(--text-dim);
+    letter-spacing: 3px;
+    text-transform: uppercase;
+    font-family: 'Orbitron', monospace;
+    animation: fadeUp 1s ease 0.6s forwards;
+    opacity: 0;
+  }
+
+  .footer span { color: var(--accent); opacity: 0.7; }
+
+  /* Animations */
+  @keyframes fadeDown {
+    from { opacity: 0; transform: translateY(-20px); }
+    to { opacity: 1; transform: translateY(0); }
+  }
+
+  @keyframes fadeUp {
+    from { opacity: 0; transform: translateY(20px); }
+    to { opacity: 1; transform: translateY(0); }
+  }
+
+  /* Number pop animation */
+  @keyframes numPop {
+    0% { transform: scale(1); }
+    50% { transform: scale(1.05); }
+    100% { transform: scale(1); }
+  }
+
+  .result.pop {
+    animation: numPop 0.15s ease;
+  }
+
+  /* Error state */
+  .result.error {
+    color: var(--accent3);
+    font-size: 20px;
+    text-shadow: 0 0 20px var(--accent3);
+  }
+
+  /* Floating particles burst on click */
+  .burst {
+    position: fixed;
+    pointer-events: none;
+    z-index: 9999;
+    border-radius: 50%;
+    animation: burst 0.6s ease forwards;
+  }
+
+  @keyframes burst {
+    0% { opacity: 1; transform: scale(0); }
+    100% { opacity: 0; transform: scale(1); }
+  }
+</style>
+</head>
+<body>
+
+<div class="cursor" id="cursor"></div>
+<div class="cursor-ring" id="cursorRing"></div>
+<canvas id="particleCanvas"></canvas>
+<div class="grid-bg"></div>
+<div class="orb orb1"></div>
+<div class="orb orb2"></div>
+<div class="orb orb3"></div>
+
+<div class="container">
+  <div class="header">
+    <img src="ayoub_logo_512x512.png" class="logo-img" alt="AYOUB" onerror="this.style.display='none'; document.getElementById('logoText').style.display='block'">
+    <div id="logoText" style="display:none; font-family:'Orbitron',monospace; font-size:28px; font-weight:900; background:linear-gradient(135deg,#00d4ff,#7b2fff); -webkit-background-clip:text; -webkit-text-fill-color:transparent; letter-spacing:8px;">AYOUB</div>
+    <div class="tagline">ayoub.pw · آلة حاسبة</div>
+  </div>
+
+  <div class="calc-wrapper">
+    <div class="calc">
+      <div class="display">
+        <div class="expression" id="expression"></div>
+        <div class="result" id="result">0</div>
+      </div>
+
+      <div class="buttons">
+        <!-- Row 1 -->
+        <button class="btn btn-clear" onclick="clearAll()" data-label="AC">AC</button>
+        <button class="btn btn-special" onclick="toggleSign()" data-label="+/-">+/-</button>
+        <button class="btn btn-special" onclick="percentage()" data-label="%">%</button>
+        <button class="btn btn-op" onclick="inputOp('/')" data-label="÷">÷</button>
+
+        <!-- Row 2 -->
+        <button class="btn btn-num" onclick="inputNum('7')" data-label="7">7</button>
+        <button class="btn btn-num" onclick="inputNum('8')" data-label="8">8</button>
+        <button class="btn btn-num" onclick="inputNum('9')" data-label="9">9</button>
+        <button class="btn btn-op" onclick="inputOp('*')" data-label="×">×</button>
+
+        <!-- Row 3 -->
+        <button class="btn btn-num" onclick="inputNum('4')" data-label="4">4</button>
+        <button class="btn btn-num" onclick="inputNum('5')" data-label="5">5</button>
+        <button class="btn btn-num" onclick="inputNum('6')" data-label="6">6</button>
+        <button class="btn btn-op" onclick="inputOp('-')" data-label="−">−</button>
+
+        <!-- Row 4 -->
+        <button class="btn btn-num" onclick="inputNum('1')" data-label="1">1</button>
+        <button class="btn btn-num" onclick="inputNum('2')" data-label="2">2</button>
+        <button class="btn btn-num" onclick="inputNum('3')" data-label="3">3</button>
+        <button class="btn btn-op" onclick="inputOp('+')" data-label="+">+</button>
+
+        <!-- Row 5 -->
+        <button class="btn btn-num btn-zero" onclick="inputNum('0')" data-label="0">0</button>
+        <button class="btn btn-num" onclick="inputDot()" data-label=".">.</button>
+        <button class="btn btn-eq" onclick="calculate()" data-label="=">=</button>
+      </div>
+    </div>
+  </div>
+
+  <div class="footer">POWERED BY <span>AYOUB.PW</span></div>
+</div>
+
+<script>
+// Calculator logic
+let currentVal = '0';
+let expression = '';
+let justCalc = false;
+let operator = null;
+let prevVal = null;
+
+function updateDisplay() {
+  const resultEl = document.getElementById('result');
+  const exprEl = document.getElementById('expression');
+  
+  resultEl.classList.remove('pop', 'error');
+  void resultEl.offsetWidth;
+  resultEl.classList.add('pop');
+  
+  let display = currentVal;
+  if (display.length > 10) {
+    display = parseFloat(display).toExponential(4);
+  }
+  resultEl.textContent = display;
+  exprEl.textContent = expression;
+  
+  resultEl.classList.remove('error');
+}
+
+function inputNum(num) {
+  if (justCalc) {
+    currentVal = num;
+    expression = '';
+    justCalc = false;
+  } else if (currentVal === '0' && num !== '.') {
+    currentVal = num;
+  } else {
+    if (currentVal.length < 12) currentVal += num;
+  }
+  updateDisplay();
+}
+
+function inputDot() {
+  if (!currentVal.includes('.')) {
+    currentVal += '.';
+    updateDisplay();
+  }
+}
+
+function inputOp(op) {
+  const opSymbols = { '/':'÷', '*':'×', '-':'−', '+':'+' };
+  
+  if (expression && !justCalc) {
+    calculate(true);
+  }
+  
+  prevVal = parseFloat(currentVal);
+  operator = op;
+  expression = currentVal + ' ' + opSymbols[op];
+  justCalc = false;
+  currentVal = '0';
+  updateDisplay();
+}
+
+function calculate(silent = false) {
+  if (!operator || prevVal === null) return;
+  
+  const curr = parseFloat(currentVal);
+  const opSymbols = { '/':'÷', '*':'×', '-':'−', '+':'+' };
+  
+  if (!silent) {
+    document.getElementById('expression').textContent = 
+      prevVal + ' ' + opSymbols[operator] + ' ' + curr + ' =';
+  }
+  
+  let result;
+  switch(operator) {
+    case '+': result = prevVal + curr; break;
+    case '-': result = prevVal - curr; break;
+    case '*': result = prevVal * curr; break;
+    case '/':
+      if (curr === 0) {
+        const resultEl = document.getElementById('result');
+        resultEl.textContent = 'لا يمكن القسمة على صفر';
+        resultEl.classList.add('error');
+        expression = '';
+        currentVal = '0';
+        operator = null; prevVal = null; justCalc = true;
+        return;
+      }
+      result = prevVal / curr;
+      break;
+  }
+  
+  // Clean float
+  result = parseFloat(result.toFixed(10));
+  currentVal = String(result);
+  operator = null;
+  prevVal = null;
+  justCalc = true;
+  
+  if (!silent) {
+    const resultEl = document.getElementById('result');
+    resultEl.classList.add('flash');
+    setTimeout(() => resultEl.classList.remove('flash'), 300);
+  }
+  
+  updateDisplay();
+}
+
+function clearAll() {
+  currentVal = '0';
+  expression = '';
+  operator = null;
+  prevVal = null;
+  justCalc = false;
+  updateDisplay();
+}
+
+function toggleSign() {
+  currentVal = String(parseFloat(currentVal) * -1);
+  updateDisplay();
+}
+
+function percentage() {
+  currentVal = String(parseFloat(currentVal) / 100);
+  updateDisplay();
+}
+
+// Keyboard support
+document.addEventListener('keydown', e => {
+  if (e.key >= '0' && e.key <= '9') inputNum(e.key);
+  else if (e.key === '.') inputDot();
+  else if (e.key === '+') inputOp('+');
+  else if (e.key === '-') inputOp('-');
+  else if (e.key === '*') inputOp('*');
+  else if (e.key === '/') { e.preventDefault(); inputOp('/'); }
+  else if (e.key === 'Enter' || e.key === '=') calculate();
+  else if (e.key === 'Escape') clearAll();
+  else if (e.key === 'Backspace') {
+    if (currentVal.length > 1) currentVal = currentVal.slice(0,-1);
+    else currentVal = '0';
+    updateDisplay();
+  }
+});
+
+// ===== PARTICLE SYSTEM =====
+const canvas = document.getElementById('particleCanvas');
+const ctx = canvas.getContext('2d');
+let mouse = { x: -1000, y: -1000 };
+let particles = [];
+
+canvas.width = window.innerWidth;
+canvas.height = window.innerHeight;
+
+window.addEventListener('resize', () => {
+  canvas.width = window.innerWidth;
+  canvas.height = window.innerHeight;
+});
+
+class Particle {
+  constructor(x, y, fromMouse = false) {
+    this.x = x ?? Math.random() * canvas.width;
+    this.y = y ?? Math.random() * canvas.height;
+    this.fromMouse = fromMouse;
+    
+    if (fromMouse) {
+      const angle = Math.random() * Math.PI * 2;
+      const speed = Math.random() * 3 + 1;
+      this.vx = Math.cos(angle) * speed;
+      this.vy = Math.sin(angle) * speed;
+      this.life = 1;
+      this.decay = Math.random() * 0.03 + 0.02;
+      this.size = Math.random() * 3 + 1;
+      this.color = Math.random() > 0.5 ? '#00d4ff' : (Math.random() > 0.5 ? '#7b2fff' : '#ff2d78');
+    } else {
+      this.vx = (Math.random() - 0.5) * 0.4;
+      this.vy = (Math.random() - 0.5) * 0.4 - 0.1;
+      this.life = Math.random();
+      this.decay = Math.random() * 0.002 + 0.001;
+      this.size = Math.random() * 2 + 0.5;
+      this.color = Math.random() > 0.6 ? '#00d4ff' : (Math.random() > 0.5 ? '#7b2fff' : '#ffffff');
+    }
+  }
+
+  update() {
+    this.x += this.vx;
+    this.y += this.vy;
+    this.life -= this.decay;
+    
+    if (!this.fromMouse) {
+      // Attract slightly to mouse
+      const dx = mouse.x - this.x;
+      const dy = mouse.y - this.y;
+      const dist = Math.sqrt(dx*dx + dy*dy);
+      if (dist < 150) {
+        this.vx += (dx / dist) * 0.05;
+        this.vy += (dy / dist) * 0.05;
+      }
+      // Speed limit
+      const speed = Math.sqrt(this.vx*this.vx + this.vy*this.vy);
+      if (speed > 2) { this.vx *= 2/speed; this.vy *= 2/speed; }
+    } else {
+      this.vy += 0.05;
+      this.vx *= 0.98;
+    }
+    
+    return this.life > 0;
+  }
+
+  draw() {
+    ctx.save();
+    ctx.globalAlpha = Math.max(0, this.life) * (this.fromMouse ? 1 : 0.7);
+    ctx.fillStyle = this.color;
+    ctx.shadowColor = this.color;
+    ctx.shadowBlur = this.fromMouse ? 8 : 4;
+    ctx.beginPath();
+    ctx.arc(this.x, this.y, this.size, 0, Math.PI*2);
+    ctx.fill();
+    ctx.restore();
+  }
+}
+
+// Init background particles
+for (let i = 0; i < 120; i++) {
+  particles.push(new Particle());
+}
+
+// Mouse trail
+let lastX = 0, lastY = 0;
+let trailParticles = [];
+
+document.addEventListener('mousemove', e => {
+  mouse.x = e.clientX;
+  mouse.y = e.clientY;
+  
+  const cursor = document.getElementById('cursor');
+  const ring = document.getElementById('cursorRing');
+  cursor.style.left = e.clientX + 'px';
+  cursor.style.top = e.clientY + 'px';
+  ring.style.left = e.clientX + 'px';
+  ring.style.top = e.clientY + 'px';
+  
+  // Spawn trail particles
+  const dx = e.clientX - lastX;
+  const dy = e.clientY - lastY;
+  const speed = Math.sqrt(dx*dx + dy*dy);
+  
+  const count = Math.min(Math.floor(speed / 3) + 1, 8);
+  for (let i = 0; i < count; i++) {
+    const t = i / count;
+    trailParticles.push(new Particle(
+      lastX + dx * t + (Math.random()-0.5)*4,
+      lastY + dy * t + (Math.random()-0.5)*4,
+      true
+    ));
+  }
+  
+  lastX = e.clientX;
+  lastY = e.clientY;
+});
+
+// Burst on click
+document.addEventListener('click', e => {
+  for (let i = 0; i < 20; i++) {
+    const p = new Particle(e.clientX, e.clientY, true);
+    p.vx *= 2.5;
+    p.vy *= 2.5;
+    p.size = Math.random() * 4 + 1;
+    trailParticles.push(p);
+  }
+});
+
+// Lines between close particles
+function drawConnections(pts) {
+  for (let i = 0; i < pts.length; i++) {
+    for (let j = i+1; j < pts.length; j++) {
+      const dx = pts[i].x - pts[j].x;
+      const dy = pts[i].y - pts[j].y;
+      const dist = Math.sqrt(dx*dx + dy*dy);
+      if (dist < 100) {
+        ctx.save();
+        ctx.globalAlpha = (1 - dist/100) * 0.15 * Math.min(pts[i].life, pts[j].life);
+        ctx.strokeStyle = '#00d4ff';
+        ctx.lineWidth = 0.5;
+        ctx.beginPath();
+        ctx.moveTo(pts[i].x, pts[i].y);
+        ctx.lineTo(pts[j].x, pts[j].y);
+        ctx.stroke();
+        ctx.restore();
+      }
+    }
+  }
+}
+
+function animate() {
+  ctx.clearRect(0, 0, canvas.width, canvas.height);
+  
+  // Update background particles
+  particles = particles.filter(p => {
+    const alive = p.update();
+    if (alive) p.draw();
+    return alive;
+  });
+  
+  // Refill background particles
+  while (particles.length < 120) {
+    particles.push(new Particle(
+      Math.random() < 0.5 ? Math.random() * canvas.width : (Math.random() > 0.5 ? 0 : canvas.width),
+      Math.random() < 0.5 ? Math.random() * canvas.height : (Math.random() > 0.5 ? 0 : canvas.height)
+    ));
+  }
+  
+  // Connections
+  drawConnections(particles.slice(0, 60));
+  
+  // Update trail particles
+  trailParticles = trailParticles.filter(p => {
+    const alive = p.update();
+    if (alive) p.draw();
+    return alive;
+  });
+  
+  requestAnimationFrame(animate);
+}
+
+animate();
+</script>
+</body>
+</html>
