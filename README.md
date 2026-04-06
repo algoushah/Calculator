@@ -126,7 +126,7 @@ git push -u origin main
 
 **أيوب**
 - 🌐 [ayoub.pw](https://ayoub.pw)
-- 📧 [info@ayoub.pw](mailto:info@ayoub.pw)
+- 📧 [contact@ayoub.pw](mailto:info@ayoub.pw)
 
 ---
 
